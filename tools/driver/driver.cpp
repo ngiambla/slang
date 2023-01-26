@@ -14,6 +14,7 @@
 #include "slang/ast/ASTSerializer.h"
 #include "slang/ast/symbols/CompilationUnitSymbols.h"
 #include "slang/diagnostics/TextDiagnosticClient.h"
+#include "slang/sim/Simulator.h"
 #include "slang/syntax/SyntaxTree.h"
 #include "slang/text/Json.h"
 #include "slang/util/TimeTrace.h"
@@ -97,6 +98,10 @@ int driverMain(int argc, TArgs argv) try {
                        "the results to the given file in Chrome Event Tracing JSON format",
                        "<path>");
 
+    std::optional<bool> sim;
+    driver.cmdLine.add("--sim", sim,
+                       "Simulate the design");
+
     if (!driver.parseCommandLine(argc, argv))
         return 1;
 
@@ -146,12 +151,18 @@ int driverMain(int argc, TArgs argv) try {
                 ok = driver.parseAllSources();
             }
 
+            std::unique_ptr<slang::ast::Compilation> compilation;
             {
                 TimeTraceScope timeScope("elaboration"sv, ""sv);
-                auto compilation = driver.createCompilation();
+                compilation = driver.createCompilation();
                 ok &= driver.reportCompilation(*compilation, quiet == true);
                 if (astJsonFile)
                     printJson(*compilation, *astJsonFile, astJsonScopes);
+            }
+
+            if (sim == true) {
+                TimeTraceScope timeScope("sim"sv, ""sv);
+                Simulator(*compilation).simulate();
             }
         }
     }
